@@ -14,9 +14,7 @@ Function Invoke-AddUserBulk {
     Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
     $TenantFilter = $Request.body.TenantFilter
     $Body = foreach ($userobj in $request.body.BulkUser) {
-        if ($userobj.usageLocation.value) {
-            $userobj.usageLocation = $userobj.usageLocation.value
-        }
+        Write-Host 'PowerShell HTTP trigger function processed a request.'
         try {
             $password = if ($userobj.password) { $userobj.password } else { New-passwordString }
             $UserprincipalName = "$($userobj.mailNickName)@$($userobj.domain)"

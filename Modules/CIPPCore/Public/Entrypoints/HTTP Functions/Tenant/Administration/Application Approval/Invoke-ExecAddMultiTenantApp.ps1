@@ -22,10 +22,10 @@ function Invoke-ExecAddMultiTenantApp {
         } else {
             $Command = 'ExecAddMultiTenantApp'
         }
-        if ('allTenants' -in $Request.Body.tenantFilter.value) {
+        if ('allTenants' -in $Request.Body.SelectedTenants.defaultDomainName) {
             $TenantFilter = (Get-Tenants).defaultDomainName
         } else {
-            $TenantFilter = $Request.Body.tenantFilter.value
+            $TenantFilter = $Request.Body.SelectedTenants.defaultDomainName
         }
 
         $TenantCount = ($TenantFilter | Measure-Object).Count

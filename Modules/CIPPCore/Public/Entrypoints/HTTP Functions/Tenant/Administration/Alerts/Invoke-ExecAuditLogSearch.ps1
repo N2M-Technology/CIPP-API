@@ -40,7 +40,6 @@ function Invoke-ExecAuditLogSearch {
     }
 
     try {
-        $Query = $Query | ConvertTo-Json -Depth 10 | ConvertFrom-Json -AsHashtable
         $Results = New-CippAuditLogSearch @Query
         Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
                 StatusCode = [HttpStatusCode]::OK

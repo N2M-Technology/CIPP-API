@@ -122,7 +122,7 @@ function New-CIPPBackupTask {
         'CippWebhookAlerts' {
             Write-Host "Backup Webhook Alerts for $TenantFilter"
             $WebhookTable = Get-CIPPTable -TableName 'WebhookRules'
-            Get-CIPPAzDataTableEntity @WebhookTable | Where-Object { $TenantFilter -in ($_.Tenants | ConvertFrom-Json).value }
+            Get-CIPPAzDataTableEntity @WebhookTable | Where-Object { $TenantFilter -in ($_.Tenants | ConvertFrom-Json).fullvalue.defaultDomainName }
         }
         'CippScriptedAlerts' {
             Write-Host "Backup Scripted Alerts for $TenantFilter"

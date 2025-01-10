@@ -85,11 +85,8 @@ function New-GraphGetRequest {
                 if ($Message -eq $null) { $Message = $($_.Exception.Message) }
                 if ($Message -ne 'Request not applicable to target tenant.' -and $Tenant) {
                     $Tenant.LastGraphError = $Message
-                    if ($Tenant.PSObject.Properties.Name -notcontains 'GraphErrorCount') {
-                        $Tenant | Add-Member -MemberType NoteProperty -Name 'GraphErrorCount' -Value 0 -Force
-                    }
                     $Tenant.GraphErrorCount++
-                    Update-AzDataTableEntity -Force @TenantsTable -Entity $Tenant
+                    Update-AzDataTableEntity @TenantsTable -Entity $Tenant
                 }
                 throw $Message
             }
@@ -99,12 +96,8 @@ function New-GraphGetRequest {
         } else {
             $Tenant.LastGraphError = ''
         }
-        if ($Tenant.PSObject.Properties.Name -notcontains 'GraphErrorCount') {
-            $Tenant | Add-Member -MemberType NoteProperty -Name 'GraphErrorCount' -Value 0 -Force
-        } else {
-            $Tenant.GraphErrorCount = 0
-        }
-        Update-AzDataTableEntity -Force @TenantsTable -Entity $Tenant
+        $Tenant.GraphErrorCount = 0
+        Update-AzDataTableEntity @TenantsTable -Entity $Tenant
         return $ReturnedData
     } else {
         Write-Error 'Not allowed. You cannot manage your own tenant or tenants not under your scope'

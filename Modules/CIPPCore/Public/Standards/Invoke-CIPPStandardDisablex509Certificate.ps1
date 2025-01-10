@@ -29,27 +29,27 @@ function Invoke-CIPPStandardDisablex509Certificate {
     param($Tenant, $Settings)
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'Disablex509Certificate'
 
-    $CurrentState = New-GraphGetRequest -Uri 'https://graph.microsoft.com/beta/policies/authenticationmethodspolicy/authenticationMethodConfigurations/x509Certificate' -tenantid $Tenant
-    $StateIsCorrect = ($CurrentState.state -eq 'disabled')
+    $CurrentInfo = New-GraphGetRequest -Uri 'https://graph.microsoft.com/beta/policies/authenticationmethodspolicy/authenticationMethodConfigurations/x509Certificate' -tenantid $Tenant
+    $State = if ($CurrentInfo.state -eq 'enabled') { $true } else { $false }
 
     If ($Settings.remediate -eq $true) {
-        if ($StateIsCorrect -eq $true) {
-            Write-LogMessage -API 'Standards' -tenant $tenant -message 'x509Certificate authentication method is already disabled.' -sev Info
-        } else {
+        if ($State) {
             Set-CIPPAuthenticationPolicy -Tenant $tenant -APIName 'Standards' -AuthenticationMethodId 'x509Certificate' -Enabled $false
+        } else {
+            Write-LogMessage -API 'Standards' -tenant $tenant -message 'x509Certificate authentication method is already disabled.' -sev Info
         }
     }
 
     if ($Settings.alert -eq $true) {
-        if ($StateIsCorrect -eq $true) {
-            Write-LogMessage -API 'Standards' -tenant $tenant -message 'x509Certificate authentication method is not enabled' -sev Info
-        } else {
+        if ($State) {
             Write-LogMessage -API 'Standards' -tenant $tenant -message 'x509Certificate authentication method is enabled' -sev Alert
+        } else {
+            Write-LogMessage -API 'Standards' -tenant $tenant -message 'x509Certificate authentication method is not enabled' -sev Info
         }
     }
 
     if ($Settings.report -eq $true) {
-        Add-CIPPBPAField -FieldName 'Disablex509Certificate' -FieldValue $StateIsCorrect -StoreAs bool -Tenant $tenant
+        Add-CIPPBPAField -FieldName 'Disablex509Certificate' -FieldValue $State -StoreAs bool -Tenant $tenant
     }
 
 }

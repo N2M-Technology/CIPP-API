@@ -15,28 +15,15 @@ function Get-HaloMapping {
             IntegrationId   = $_.HaloPSA
             IntegrationName = $_.HaloPSAName
         }
-        Remove-AzDataTableEntity -Force @CIPPMapping -Entity $_ | Out-Null
+        Remove-AzDataTableEntity @CIPPMapping -Entity $_ | Out-Null
     }
     if (($MigrateRows | Measure-Object).Count -gt 0) {
         Add-CIPPAzDataTableEntity @CIPPMapping -Entity $MigrateRows -Force
     }
 
-    $ExtensionMappings = Get-ExtensionMapping -Extension 'Halo'
+    $Mappings = Get-ExtensionMapping -Extension 'Halo'
 
     $Tenants = Get-Tenants -IncludeErrors
-
-    $Mappings = foreach ($Mapping in $ExtensionMappings) {
-        $Tenant = $Tenants | Where-Object { $_.RowKey -eq $Mapping.RowKey }
-        if ($Tenant) {
-            [PSCustomObject]@{
-                TenantId        = $Tenant.customerId
-                Tenant          = $Tenant.displayName
-                TenantDomain    = $Tenant.defaultDomainName
-                IntegrationId   = $Mapping.IntegrationId
-                IntegrationName = $Mapping.IntegrationName
-            }
-        }
-    }
     $Table = Get-CIPPTable -TableName Extensionsconfig
     try {
         $Configuration = ((Get-CIPPAzDataTableEntity @Table).config | ConvertFrom-Json -ea stop).HaloPSA
@@ -66,6 +53,7 @@ function Get-HaloMapping {
         }
     }
     $MappingObj = [PSCustomObject]@{
+        Tenants   = @($Tenants)
         Companies = @($HaloClients)
         Mappings  = $Mappings
     }

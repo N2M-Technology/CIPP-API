@@ -17,8 +17,7 @@ function Get-AuthorisedRequest {
     }
     $Tenants = Get-Tenants -IncludeErrors
     $SkipList = Get-Tenants -SkipList
-
-    if (($SkipList.customerId -notcontains $TenantID -and $SkipList.defaultDomainName -notcontains $TenantID) -or (($Tenants.customerId -contains $TenantID -or $Tenants.defaultDomainName -contains $TenantID) -and $TenantID -ne $env:TenantID)) {
+    if (($env:PartnerTenantAvailable -eq $true -and $SkipList.customerId -notcontains $TenantID -and $SkipList.defaultDomainName -notcontains $TenantID) -or (($Tenants.customerId -contains $TenantID -or $Tenants.defaultDomainName -contains $TenantID) -and $TenantID -ne $env:TenantID)) {
         return $true
     } else {
         return $false

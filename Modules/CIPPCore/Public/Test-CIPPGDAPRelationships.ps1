@@ -6,8 +6,7 @@ function Test-CIPPGDAPRelationships {
         $ExecutingUser
     )
 
-    $GDAPissues = [System.Collections.Generic.List[object]]@()
-    $MissingGroups = [System.Collections.Generic.List[object]]@()
+    $GDAPissues = [System.Collections.ArrayList]@()
     try {
         #Get graph request to list all relationships.
         $Relationships = New-GraphGetRequest -uri "https://graph.microsoft.com/beta/tenantRelationships/delegatedAdminRelationships?`$filter=status eq 'active'" -tenantid $ENV:TenantID -NoAuthCheck $true
@@ -18,8 +17,8 @@ function Test-CIPPGDAPRelationships {
                 $GDAPissues.add([PSCustomObject]@{
                         Type         = 'Error'
                         Issue        = 'This tenant only has a MLT(Microsoft Led Transition) relationship. This is a read-only relationship. You must migrate this tenant to GDAP.'
-                        Tenant       = [string]$Tenant.Group.customer.displayName
-                        Relationship = [string]$Tenant.Group.displayName
+                        Tenant       = $Tenant.Group.customer.displayName
+                        Relationship = $Tenant.Group.displayName
                         Link         = 'https://docs.cipp.app/setup/gdap/index'
                     }) | Out-Null
             }
@@ -28,8 +27,8 @@ function Test-CIPPGDAPRelationships {
                     $GDAPissues.add([PSCustomObject]@{
                             Type         = 'Warning'
                             Issue        = 'The relationship has global administrator access. Auto-Extend is not available.'
-                            Tenant       = [string]$Group.customer.displayName
-                            Relationship = [string]$Group.displayName
+                            Tenant       = $Group.customer.displayName | Out-String
+                            Relationship = $Group.displayName | Out-String
                             Link         = 'https://docs.cipp.app/setup/gdap/troubleshooting#autoextend'
 
                         }) | Out-Null
@@ -75,10 +74,6 @@ function Test-CIPPGDAPRelationships {
                         Relationship = 'None'
                         Link         = 'https://docs.cipp.app/setup/gdap/troubleshooting#groups'
 
-                    }) | Out-Null
-                $MissingGroups.Add([PSCustomObject]@{
-                        Name = $Group
-                        Type = 'SAM User Membership'
                     }) | Out-Null
             }
             if ($CIPPGroupCount -lt 12) {

@@ -3,14 +3,16 @@ using namespace System.Net
 Function Invoke-ExecSetOoO {
     <#
     .FUNCTIONALITY
-    Entrypoint
+        Entrypoint
+    .ROLE
+        Exchange.Mailbox.ReadWrite
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
     try {
         $APIName = $TriggerMetadata.FunctionName
-        Write-LogMessage -user $request.headers.'X-MS-CLIENT-PRINCIPAL' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
-        $Username = $request.body.userId
+        Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+        $Username = $request.body.user
         $Tenantfilter = $request.body.tenantfilter
         if ($Request.body.input) {
             $InternalMessage = $Request.body.input
@@ -19,16 +21,24 @@ Function Invoke-ExecSetOoO {
             $InternalMessage = $Request.body.InternalMessage
             $ExternalMessage = $Request.body.ExternalMessage
         }
-        #if starttime and endtime are a number, they are unix timestamps and need to be converted to datetime, otherwise just use them.
-        $StartTime = if ($Request.body.StartTime -match '^\d+$') { [DateTimeOffset]::FromUnixTimeSeconds([int]$Request.body.StartTime).DateTime } else { $Request.body.StartTime }
-        $EndTime = if ($Request.body.EndTime -match '^\d+$') { [DateTimeOffset]::FromUnixTimeSeconds([int]$Request.body.EndTime).DateTime } else { $Request.body.EndTime }
+        $StartTime = $Request.body.StartTime
+        $EndTime = $Request.body.EndTime
+
+        $OutOfOffice = @{
+            userid          = $Request.body.user
+            InternalMessage = $InternalMessage
+            ExternalMessage = $ExternalMessage
+            TenantFilter    = $TenantFilter
+            State           = $Request.Body.AutoReplyState
+            APIName         = $APINAME
+            ExecutingUser   = $request.headers.'x-ms-client-principal'
+            StartTime       = $StartTime
+            EndTime         = $EndTime
+        }
+        Write-Host ($OutOfOffice | ConvertTo-Json -Depth 10)
 
         $Results = try {
-            if ($Request.Body.AutoReplyState.value -ne 'Scheduled') {
-                Set-CIPPOutOfOffice -userid $Username -tenantFilter $TenantFilter -APIName $APINAME -ExecutingUser $request.headers.'X-MS-CLIENT-PRINCIPAL' -InternalMessage $InternalMessage -ExternalMessage $ExternalMessage -State $Request.Body.AutoReplyState.value
-            } else {
-                Set-CIPPOutOfOffice -userid $Username -tenantFilter $TenantFilter -APIName $APINAME -ExecutingUser $request.headers.'X-MS-CLIENT-PRINCIPAL' -InternalMessage $InternalMessage -ExternalMessage $ExternalMessage -StartTime $StartTime -EndTime $EndTime -State $Request.Body.AutoReplyState.value
-            }
+            Set-CIPPOutOfOffice @OutOfOffice
         } catch {
             "Could not add out of office message for $($username). Error: $($_.Exception.Message)"
         }

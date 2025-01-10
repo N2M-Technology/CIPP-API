@@ -38,11 +38,11 @@ Function Invoke-AddIntuneTemplate {
 
             $body = [pscustomobject]@{'Results' = 'Successfully added template' }
         } else {
-            $TenantFilter = $Request.Query.tenantFilter
+            $TenantFilter = $Request.Query.TenantFilter
             $URLName = $Request.Query.URLName
             $ID = $Request.Query.id
             $Template = New-CIPPIntuneTemplate -TenantFilter $TenantFilter -URLName $URLName -ID $ID
-            Write-Host "Template: $Template"
+
             $object = [PSCustomObject]@{
                 Displayname = $Template.DisplayName
                 Description = $Template.Description

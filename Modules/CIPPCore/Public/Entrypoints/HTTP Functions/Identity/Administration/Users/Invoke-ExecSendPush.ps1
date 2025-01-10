@@ -13,8 +13,8 @@ Function Invoke-ExecSendPush {
     $APIName = $TriggerMetadata.FunctionName
     Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
 
-    $TenantFilter = $Request.body.TenantFilter
-    $UserEmail = $Request.body.UserEmail
+    $TenantFilter = $Request.Query.TenantFilter
+    $UserEmail = $Request.Query.UserEmail
     $MFAAppID = '981f26a1-7f43-403b-a875-f8b09b8cd720'
 
     # Function to keep trying to get the access token while we wait for MS to actually set the temp password
@@ -92,7 +92,7 @@ Function Invoke-ExecSendPush {
     try {
         $ClientToken = get-clientaccess -Uri $ClientUri -Body $body
     } catch {
-        $Body = 'Failed to create temporary token for MFA Application. Error: ' + $_.Exception.Message
+        $Body = 'Failed to create temporary password'
     }
 
     # If we got a token send a push
@@ -104,16 +104,15 @@ Function Invoke-ExecSendPush {
 
         if ($obj.BeginTwoWayAuthenticationResponse.result) {
             $Body = "Received an MFA confirmation: $($obj.BeginTwoWayAuthenticationResponse.result.value | Out-String)"
-            $colour = 'success'
         }
         if ($obj.BeginTwoWayAuthenticationResponse.AuthenticationResult -ne $true) {
             $Body = "Authentication Failed! Does the user have Push/Phone call MFA configured? Errorcode: $($obj.BeginTwoWayAuthenticationResponse.result.value | Out-String)"
-            $colour = 'error'
+            $colour = 'danger'
         }
 
     }
 
-    $Results = [pscustomobject]@{'Results' = $Body; severity = $colour }
+    $Results = [pscustomobject]@{'Results' = $Body; colour = $colour }
     Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message "Sent push request to $UserEmail - Result: $($obj.BeginTwoWayAuthenticationResponse.result.value | Out-String)" -Sev 'Info'
 
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{

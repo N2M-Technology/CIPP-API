@@ -63,7 +63,6 @@ function Invoke-ListFunctionParameters {
                         Name        = $Key
                         Type        = $Param.ParameterType.FullName
                         Description = $ParamHelp.description
-                        Required    = $Param.Attributes.Mandatory
                     }
                 }
             }

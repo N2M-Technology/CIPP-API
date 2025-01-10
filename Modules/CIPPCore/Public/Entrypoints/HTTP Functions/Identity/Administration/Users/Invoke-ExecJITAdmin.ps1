@@ -12,7 +12,7 @@ Function Invoke-ExecJITAdmin {
 
     $APIName = 'ExecJITAdmin'
     $User = $Request.Headers.'x-ms-client-principal'
-    $TenantFilter = $Request.body.TenantFilter.value ? $Request.body.TenantFilter.value : $Request.body.TenantFilter
+
     Write-LogMessage -user $User -API $APINAME -message 'Accessed this API' -Sev 'Debug'
 
     if ($Request.Query.Action -eq 'List') {
@@ -60,31 +60,31 @@ Function Invoke-ExecJITAdmin {
         }
     } else {
 
-        if ($Request.Body.existingUser.value -match '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$') {
-            $Username = (New-GraphGetRequest -uri "https://graph.microsoft.com/v1.0/users/$($Request.Body.existingUser.value)" -tenantid $TenantFilter).userPrincipalName
+        if ($Request.Body.UserId -match '^[a-f0-9]{8}-([a-f0-9]{4}-){3}[a-f0-9]{12}$') {
+            $Username = (New-GraphGetRequest -uri "https://graph.microsoft.com/v1.0/users/$($Request.Body.UserId)" -tenantid $Request.Body.TenantFilter).userPrincipalName
         }
-        Write-LogMessage -user $User -API $APINAME -message "Executing JIT Admin for $Username" -tenant $TenantFilter -Sev 'Info'
+        Write-LogMessage -user $User -API $APINAME -message "Executing JIT Admin for $Username" -tenant $Request.Body.TenantFilter -Sev 'Info'
 
         $Start = ([System.DateTimeOffset]::FromUnixTimeSeconds($Request.Body.StartDate)).DateTime.ToLocalTime()
         $Expiration = ([System.DateTimeOffset]::FromUnixTimeSeconds($Request.Body.EndDate)).DateTime.ToLocalTime()
         $Results = [System.Collections.Generic.List[string]]::new()
 
         if ($Request.Body.useraction -eq 'Create') {
-            Write-LogMessage -user $User -API $APINAME -tenant $TenantFilter -message "Creating JIT Admin user $($Request.Body.Username)" -Sev 'Info'
-            Write-Information "Creating JIT Admin user $($Request.Body.username)"
+            Write-LogMessage -user $User -API $APINAME -tenant $Request.Body.TenantFilter -message "Creating JIT Admin user $($Request.Body.UserPrincipalName)" -Sev 'Info'
+            Write-Information "Creating JIT Admin user $($Request.Body.UserPrincipalName)"
             $JITAdmin = @{
                 User         = @{
                     'FirstName'         = $Request.Body.FirstName
                     'LastName'          = $Request.Body.LastName
-                    'UserPrincipalName' = "$($Request.Body.Username)@$($Request.Body.Domain.value)"
+                    'UserPrincipalName' = $Request.Body.UserPrincipalName
                 }
                 Expiration   = $Expiration
                 Action       = 'Create'
-                TenantFilter = $TenantFilter
+                TenantFilter = $Request.Body.TenantFilter
             }
             $CreateResult = Set-CIPPUserJITAdmin @JITAdmin
-            $Username = "$($Request.Body.Username)@$($Request.Body.Domain.value)"
-            $Results.Add("Created User: $($Request.Body.Username)@$($Request.Body.Domain.value)")
+            $Username = $CreateResult.userPrincipalName
+            $Results.Add("Created User: $($CreateResult.userPrincipalName)")
             if (!$Request.Body.UseTAP) {
                 $Results.Add("Password: $($CreateResult.password)")
             }
@@ -107,7 +107,7 @@ Function Invoke-ExecJITAdmin {
                 $Retries = 0
                 do {
                     try {
-                        $TapRequest = New-GraphPostRequest -uri "https://graph.microsoft.com/beta/users/$($Username)/authentication/temporaryAccessPassMethods" -tenantid $TenantFilter -type POST -body $TapBody
+                        $TapRequest = New-GraphPostRequest -uri "https://graph.microsoft.com/beta/users/$($Username)/authentication/temporaryAccessPassMethods" -tenantid $Request.Body.TenantFilter -type POST -body $TapBody
                     } catch {
                         Start-Sleep -Seconds 2
                         Write-Information 'ERROR: Failed to create TAP, retrying'
@@ -137,17 +137,17 @@ Function Invoke-ExecJITAdmin {
         }
 
         $Parameters = @{
-            TenantFilter = $TenantFilter
+            TenantFilter = $Request.Body.TenantFilter
             User         = @{
                 'UserPrincipalName' = $Username
             }
-            Roles        = $Request.Body.AdminRoles.value
+            Roles        = $Request.Body.AdminRoles
             Action       = 'AddRoles'
             Expiration   = $Expiration
         }
         if ($Start -gt (Get-Date)) {
             $TaskBody = @{
-                TenantFilter  = $TenantFilter
+                TenantFilter  = $Request.Body.TenantFilter
                 Name          = "JIT Admin (enable): $Username"
                 Command       = @{
                     value = 'Set-CIPPUserJITAdmin'
@@ -156,14 +156,14 @@ Function Invoke-ExecJITAdmin {
                 Parameters    = [pscustomobject]$Parameters
                 ScheduledTime = $Request.Body.StartDate
                 PostExecution = @{
-                    Webhook = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'webhook')
-                    Email   = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'email')
-                    PSA     = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'PSA')
+                    Webhook = [bool]$Request.Body.PostExecution.Webhook
+                    Email   = [bool]$Request.Body.PostExecution.Email
+                    PSA     = [bool]$Request.Body.PostExecution.PSA
                 }
             }
             Add-CIPPScheduledTask -Task $TaskBody -hidden $false
             if ($Request.Body.useraction -ne 'Create') {
-                Set-CIPPUserJITAdminProperties -TenantFilter $TenantFilter -UserId $Request.Body.existingUser.value -Expiration $Expiration
+                Set-CIPPUserJITAdminProperties -TenantFilter $Request.Body.TenantFilter -UserId $Request.Body.UserId -Expiration $Expiration
             }
             $Results.Add("Scheduling JIT Admin enable task for $Username")
         } else {
@@ -172,29 +172,29 @@ Function Invoke-ExecJITAdmin {
         }
 
         $DisableTaskBody = [pscustomobject]@{
-            TenantFilter  = $TenantFilter
-            Name          = "JIT Admin ($($Request.Body.ExpireAction.value)): $Username"
+            TenantFilter  = $Request.Body.TenantFilter
+            Name          = "JIT Admin ($($Request.Body.ExpireAction)): $Username"
             Command       = @{
                 value = 'Set-CIPPUserJITAdmin'
                 label = 'Set-CIPPUserJITAdmin'
             }
             Parameters    = [pscustomobject]@{
-                TenantFilter = $TenantFilter
+                TenantFilter = $Request.Body.TenantFilter
                 User         = @{
                     'UserPrincipalName' = $Username
                 }
-                Roles        = $Request.Body.AdminRoles.value
-                Action       = $Request.Body.ExpireAction.value
+                Roles        = $Request.Body.AdminRoles
+                Action       = $Request.Body.ExpireAction
             }
             PostExecution = @{
-                Webhook = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'webhook')
-                Email   = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'email')
-                PSA     = [bool]($Request.Body.PostExecution | Where-Object -Property value -EQ 'PSA')
+                Webhook = [bool]$Request.Body.PostExecution.Webhook
+                Email   = [bool]$Request.Body.PostExecution.Email
+                PSA     = [bool]$Request.Body.PostExecution.PSA
             }
             ScheduledTime = $Request.Body.EndDate
         }
         $null = Add-CIPPScheduledTask -Task $DisableTaskBody -hidden $false
-        $Results.Add("Scheduling JIT Admin $($Request.Body.ExpireAction.value) task for $Username")
+        $Results.Add("Scheduling JIT Admin $($Request.Body.ExpireAction) task for $Username")
         $Body = @{
             Results = @($Results)
         }

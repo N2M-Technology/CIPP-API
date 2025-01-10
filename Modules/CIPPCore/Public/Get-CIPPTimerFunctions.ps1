@@ -1,8 +1,8 @@
 function Get-CIPPTimerFunctions {
     [CmdletBinding()]
     param(
-        [switch]$ResetToDefault,
-        [switch]$ListAllTasks
+        [switch]$All,
+        [switch]$ResetToDefault
     )
 
     $ConfigTable = Get-CIPPTable -tablename Config
@@ -23,7 +23,7 @@ function Get-CIPPTimerFunctions {
 
     $RunOnProcessor = $true
     if ($Config -and $Config.state -eq $true) {
-        if ($env:CIPP_PROCESSOR -ne 'true') {
+        if ($env:CIPP_PROCESSOR -ne 'true' -and !$All.IsPresent) {
             $RunOnProcessor = $false
         }
     }
@@ -38,26 +38,12 @@ function Get-CIPPTimerFunctions {
     }
 
     $CIPPRoot = (Get-Item $CIPPCoreModuleRoot).Parent.Parent
-    $CippTimers = Get-Content -Path $CIPPRoot\CIPPTimers.json
-    if ($ListAllTasks) {
-        $Orchestrators = $CippTimers | ConvertFrom-Json | Sort-Object -Property Priority
-    } else {
-        $Orchestrators = $CippTimers | ConvertFrom-Json | Where-Object { $_.RunOnProcessor -eq $RunOnProcessor } | Sort-Object -Property Priority
-    }
+    $Orchestrators = Get-Content -Path $CIPPRoot\CIPPTimers.json | ConvertFrom-Json | Where-Object { $_.RunOnProcessor -eq $RunOnProcessor }
     $Table = Get-CIPPTable -TableName 'CIPPTimers'
     $RunOnProcessorTxt = if ($RunOnProcessor) { 'true' } else { 'false' }
-    if ($ListAllTasks.IsPresent) {
-        $OrchestratorStatus = Get-CIPPAzDataTableEntity @Table
-    } else {
-        $OrchestratorStatus = Get-CIPPAzDataTableEntity @Table -Filter "RunOnProcessor eq $RunOnProcessorTxt"
-    }
-
-    $OrchestratorStatus | Where-Object { $_.RowKey -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' } | Select-Object ETag, PartitionKey, RowKey | ForEach-Object {
-        Remove-AzDataTableEntity @Table -Entity $_ -Force
-    }
-
+    $OrchestratorStatus = Get-CIPPAzDataTableEntity @Table -Filter "RunOnProcessor eq $RunOnProcessorTxt"
     foreach ($Orchestrator in $Orchestrators) {
-        $Status = $OrchestratorStatus | Where-Object { $_.RowKey -eq $Orchestrator.Id }
+        $Status = $OrchestratorStatus | Where-Object { $_.RowKey -eq $Orchestrator.Command }
         if ($Status.Cron) {
             $CronString = $Status.Cron
         } else {
@@ -73,18 +59,16 @@ function Get-CIPPTimerFunctions {
             continue
         }
 
-        if (!$ListAllTasks.IsPresent) {
-            if ($Orchestrator.PreferredProcessor -and $AvailableNodes -contains $Orchestrator.PreferredProcessor -and $Node -ne $Orchestrator.PreferredProcessor) {
-                # only run on preferred processor when available
-                continue
-            } elseif ((!$Orchestrator.PreferredProcessor -or $AvailableNodes -notcontains $Orchestrator.PreferredProcessor) -and $Node -notin ('http', 'proc')) {
-                # Catchall function nodes
-                continue
-            }
+        if ($Orchestrator.PreferredProcessor -and $AvailableNodes -contains $Orchestrator.PreferredProcessor -and $Node -ne $Orchestrator.PreferredProcessor) {
+            # only run on preferred processor when available
+            continue
+        } elseif ((!$Orchestrator.PreferredProcessor -or $AvailableNodes -notcontains $Orchestrator.PreferredProcessor) -and $Node -notin ('http', 'proc')) {
+            # Catchall function nodes
+            continue
         }
 
         $Now = Get-Date
-        if ($ListAllTasks.IsPresent) {
+        if ($All.IsPresent) {
             $NextOccurrence = [datetime]$Cron.GetNextOccurrence($Now)
         } else {
             $NextOccurrences = $Cron.GetNextOccurrences($Now.AddMinutes(-15), $Now.AddMinutes(15))
@@ -96,12 +80,11 @@ function Get-CIPPTimerFunctions {
         }
 
         if (Get-Command -Name $Orchestrator.Command -Module CIPPCore -ErrorAction SilentlyContinue) {
-            if ($NextOccurrence -or $ListAllTasks.IsPresent) {
+            if ($NextOccurrence) {
                 if (!$Status) {
                     $Status = [pscustomobject]@{
                         PartitionKey       = 'Timer'
-                        RowKey             = $Orchestrator.Id
-                        Command            = $Orchestrator.Command
+                        RowKey             = $Orchestrator.Command
                         Cron               = $CronString
                         LastOccurrence     = 'Never'
                         NextOccurrence     = $NextOccurrence.ToUniversalTime()
@@ -111,7 +94,7 @@ function Get-CIPPTimerFunctions {
                         IsSystem           = $Orchestrator.IsSystem ?? $false
                         PreferredProcessor = $Orchestrator.PreferredProcessor ?? ''
                     }
-                    Add-CIPPAzDataTableEntity @Table -Entity $Status -Force
+                    Add-CIPPAzDataTableEntity @Table -Entity $Status
                 } else {
                     if ($Orchestrator.IsSystem -eq $true -or $ResetToDefault.IsPresent) {
                         $Status.Cron = $CronString
@@ -127,10 +110,7 @@ function Get-CIPPTimerFunctions {
                 }
 
                 [PSCustomObject]@{
-                    Id                 = $Orchestrator.Id
-                    Priority           = $Orchestrator.Priority
                     Command            = $Orchestrator.Command
-                    Parameters         = $Orchestrator.Parameters ?? @{}
                     Cron               = $CronString
                     NextOccurrence     = $NextOccurrence.ToUniversalTime()
                     LastOccurrence     = $Status.LastOccurrence.DateTime
@@ -144,7 +124,7 @@ function Get-CIPPTimerFunctions {
         } else {
             if ($Status) {
                 Write-Warning "Timer function: $($Orchestrator.Command) does not exist"
-                Remove-AzDataTableEntity @Table -Entity $Status
+                Remove-CIPPAzDataTableEntity @Table -Entity $Status
             }
         }
     }

@@ -26,6 +26,9 @@ function Push-BECRun {
         } else {
             $sessionid = Get-Random -Minimum 10000 -Maximum 99999
             $operations = @(
+                'New-InboxRule',
+                'Set-InboxRule',
+                'UpdateInboxRules',
                 'Remove-MailboxPermission',
                 'Add-MailboxPermission',
                 'UpdateCalendarDelegation',
@@ -93,12 +96,18 @@ function Push-BECRun {
             $PermissionsLog = @()
         }
 
-        Write-Information 'Getting rules'
-
         try {
-            $RulesLog = New-ExoRequest -cmdlet 'Get-InboxRule' -tenantid $TenantFilter -cmdParams @{ Mailbox = $Username; IncludeHidden = $true } -Anchor $Username
+            $RulesLog = @(($7dayslog | Where-Object -Property Operations -In 'New-InboxRule', 'Set-InboxRule', 'UpdateInboxRules').AuditData | ConvertFrom-Json -ErrorAction Stop) | ForEach-Object {
+                Write-Information ($_ | ConvertTo-Json)
+                [pscustomobject]@{
+                    ClientIP      = $_.ClientIP
+                    CreationTime  = $_.CreationTime
+                    UserId        = $_.UserId
+                    RuleName      = ($_.OperationProperties | ForEach-Object { if ($_.Name -eq 'RuleName') { $_.Value } })
+                    RuleCondition = ($_.OperationProperties | ForEach-Object { if ($_.Name -eq 'RuleCondition') { $_.Value } })
+                }
+            }
         } catch {
-            Write-Host 'Failed to get rules: ' + $_.Exception.Message
             $RulesLog = @()
         }
 

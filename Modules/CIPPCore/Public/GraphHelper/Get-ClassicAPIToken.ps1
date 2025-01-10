@@ -38,7 +38,7 @@ function Get-ClassicAPIToken($tenantID, $Resource) {
             $Tenant.LastGraphError = $_.Exception.Message
             $Tenant.GraphErrorCount++
 
-            Update-AzDataTableEntity -Force @TenantsTable -Entity $Tenant
+            Update-AzDataTableEntity @TenantsTable -Entity $Tenant
             Throw "Failed to obtain Classic API Token for $TenantID - $_"
         }
     }

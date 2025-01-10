@@ -59,7 +59,6 @@ function Get-CIPPAzDataTableEntity {
                 }
                 $fullEntity | Add-Member -MemberType NoteProperty -Name 'PartitionKey' -Value $parts[0].PartitionKey -Force
                 $fullEntity | Add-Member -MemberType NoteProperty -Name 'RowKey' -Value $entityId -Force
-                $fullEntity | Add-Member -MemberType NoteProperty -Name 'Timestamp' -Value $parts[0].Timestamp -Force
                 $finalResults = $finalResults + @($fullEntity)
             } else {
                 $finalResults = $finalResults + @($entityData.Entity)

@@ -40,7 +40,8 @@ Function Invoke-ListMailboxRules {
             $Type = $TenantFilter
         }
         $Queue = New-CippQueueEntry -Name "Mailbox Rules ($Type)" -TotalTasks ($Tenants | Measure-Object).Count
-        $Batch = $Tenants | Select-Object defaultDomainName, @{Name = 'FunctionName'; Expression = { 'ListMailboxRulesQueue' } }, @{Name = 'QueueName'; Expression = { $_.defaultDomainName } }, @{Name = 'QueueId'; Expression = { $Queue.RowKey } }
+        $Batch = $Tenants | Select-Object defaultDomainName, @{Name = 'FunctionName'; Expression = { 'ListMailboxRulesQueue' } }, @{Name = 'QueueName'; Expression = { $_.defaultDomainName } }, @{Name = 'QueueId'; Expression = { $Queue.RowKey } }, @{Name = 'QueueName'; Expression = { $_.defaultDomainName } }
+
         if (($Batch | Measure-Object).Count -gt 0) {
             $InputObject = [PSCustomObject]@{
                 OrchestratorName = 'ListMailboxRulesOrchestrator'

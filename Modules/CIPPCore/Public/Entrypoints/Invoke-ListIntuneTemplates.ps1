@@ -14,23 +14,17 @@ Function Invoke-ListIntuneTemplates {
     Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
 
     $Table = Get-CippTable -tablename 'templates'
-    $Imported = Get-CIPPAzDataTableEntity @Table -Filter "PartitionKey eq 'settings'"
-    if ($Imported.IntuneTemplate -ne $true) {
-        $Templates = Get-ChildItem 'Config\*.IntuneTemplate.json' | ForEach-Object {
-            $Entity = @{
-                JSON         = "$(Get-Content $_)"
-                RowKey       = "$($_.name)"
-                PartitionKey = 'IntuneTemplate'
-                GUID         = "$($_.name)"
-            }
-            Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force
+
+    $Templates = Get-ChildItem 'Config\*.IntuneTemplate.json' | ForEach-Object {
+        $Entity = @{
+            JSON         = "$(Get-Content $_)"
+            RowKey       = "$($_.name)"
+            PartitionKey = 'IntuneTemplate'
+            GUID         = "$($_.name)"
         }
-        Add-CIPPAzDataTableEntity @Table -Entity @{
-            IntuneTemplate = $true
-            RowKey         = 'IntuneTemplate'
-            PartitionKey   = 'settings'
-        } -Force
+        Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force
     }
+
     #List new policies
     $Table = Get-CippTable -tablename 'templates'
     $Filter = "PartitionKey eq 'IntuneTemplate'"

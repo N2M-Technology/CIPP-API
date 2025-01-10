@@ -26,24 +26,15 @@ function Set-CIPPResetPassword {
             $password = $PasswordLink
         }
         Write-LogMessage -user $ExecutingUser -API $APIName -message "Reset the password for $($userid). User must change password is set to $forceChangePasswordNextSignIn" -Sev 'Info' -tenant $TenantFilter
-
-        if ($UserDetails.onPremisesSyncEnabled -eq $true) {
-            return [pscustomobject]@{ resultText = "Reset the password for $($userid). User must change password is set to $forceChangePasswordNextSignIn. The new password is $password. WARNING: This user is AD synced. Please confirm passthrough or writeback is enabled."
-                copyField                        = $password
-                state                            = 'warning'
-            }
-        } else {
-            return [pscustomobject]@{ resultText = "Reset the password for $($userid). User must change password is set to $forceChangePasswordNextSignIn. The new password is $password"
-                copyField                        = $password
-                state                            = 'success'
-            }
+        
+        if($UserDetails.onPremisesSyncEnabled -eq $true){
+            return "Reset the password for $($userid). User must change password is set to $forceChangePasswordNextSignIn. The new password is $password. WARNING: This user is AD synced. Please confirm passthrough or writeback is enabled."
+        }else{
+            return "Reset the password for $($userid). User must change password is set to $forceChangePasswordNextSignIn. The new password is $password"
         }
     } catch {
         $ErrorMessage = Get-CippException -Exception $_
         Write-LogMessage -user $ExecutingUser -API $APIName -message "Could not reset password for $($userid). Error: $($ErrorMessage.NormalizedError)" -Sev 'Error' -tenant $TenantFilter -LogData $ErrorMessage
-        return [pscustomobject]@{
-            resultText = "Could not reset password for $($userid). Error: $($ErrorMessage.NormalizedError)"
-            state      = 'Error'
-        }
+        return "Could not reset password for $($userid). Error: $($ErrorMessage.NormalizedError)"
     }
 }

@@ -50,9 +50,10 @@ Function Invoke-ListExtensionSync {
             $AllTasksArrayList.Add($TaskEntry)
         }
     }
-
+    Write-Host ($AllTasksArrayList | ConvertTo-Json -Depth 5 -Compress)
+    # Associate values to output bindings by calling 'Push-OutputBinding'.
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
             StatusCode = [HttpStatusCode]::OK
-            Body       = ConvertTo-Json -Depth 5 -InputObject @($AllTasksArrayList)
+            Body       = ConvertTo-Json -Depth 5 -InputObject $($AllTasksArrayList)
         })
 }

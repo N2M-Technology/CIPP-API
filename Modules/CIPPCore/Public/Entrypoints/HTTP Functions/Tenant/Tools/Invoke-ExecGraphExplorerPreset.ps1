@@ -20,13 +20,13 @@ Function Invoke-ExecGraphExplorerPreset {
 
     switch ($Action) {
         'Copy' {
-            $Id = $Request.Body.preset.id ?  $Request.Body.preset.id: (New-Guid).Guid
+            $Id = (New-Guid).Guid
         }
         'Save' {
-            $Id = $Request.Body.preset.id
+            $Id = $Request.Body.preset.reportTemplate.value
         }
         'Delete' {
-            $Id = $Request.Body.preset.id
+            $Id = $Request.Body.preset.reportTemplate.value
         }
         default {
             $Action = 'Copy'
@@ -55,19 +55,18 @@ Function Invoke-ExecGraphExplorerPreset {
         $Table = Get-CIPPTable -TableName 'GraphPresets'
         $Message = '{0} preset succeeded' -f $Action
         if ($Action -eq 'Copy') {
-            Add-CIPPAzDataTableEntity @Table -Entity $Preset -Force
+            Add-CIPPAzDataTableEntity @Table -Entity $Preset
             $Success = $true
         } else {
             $Entity = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq '$Id'"
             if ($Entity.Owner -eq $Username ) {
                 if ($Action -eq 'Delete') {
-                    Remove-AzDataTableEntity -Force @Table -Entity $Entity
+                    Remove-AzDataTableEntity @Table -Entity $Entity
                 } elseif ($Action -eq 'Save') {
                     Add-CIPPAzDataTableEntity @Table -Entity $Preset -Force
                 }
                 $Success = $true
             } else {
-                Write-Host "username in table: $($Entity.Owner). Username in request: $Username"
                 $Message = 'Error: You can only modify your own presets.'
                 $Success = $false
             }

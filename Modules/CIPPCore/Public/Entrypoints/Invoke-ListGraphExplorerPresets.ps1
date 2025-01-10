@@ -12,11 +12,13 @@ Function Invoke-ListGraphExplorerPresets {
 
     $APIName = $TriggerMetadata.FunctionName
     Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
-    $Username = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($request.headers.'x-ms-client-principal')) | ConvertFrom-Json).userDetails
 
+    $Username = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($request.headers.'x-ms-client-principal')) | ConvertFrom-Json).userDetails
+    # Write to the Azure Functions log stream.
+    Write-Host 'PowerShell HTTP trigger function processed a request.'
     try {
         $Table = Get-CIPPTable -TableName 'GraphPresets'
-        $Presets = Get-CIPPAzDataTableEntity @Table -Filter "Owner eq '$Username' or IsShared eq true" | Sort-Object -Property name
+        $Presets = Get-CIPPAzDataTableEntity @Table -Filter "Owner eq '$Username' or IsShared eq true"
         $Results = foreach ($Preset in $Presets) {
             [PSCustomObject]@{
                 id         = $Preset.Id
@@ -26,13 +28,8 @@ Function Invoke-ListGraphExplorerPresets {
                 params     = ConvertFrom-Json -InputObject $Preset.Params
             }
         }
-
-        if ($Request.Query.Endpoint) {
-            $Endpoint = $Request.Query.Endpoint -replace '^/', ''
-            $Results = $Results | Where-Object { ($_.params.endpoint -replace '^/', '') -eq $Endpoint }
-        }
     } catch {
-        $Results = @()
+        $Presets = @()
     }
     # Associate values to output bindings by calling 'Push-OutputBinding'.
     Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
@@ -40,7 +37,7 @@ Function Invoke-ListGraphExplorerPresets {
             Body       = @{
                 Results  = @($Results)
                 Metadata = @{
-                    Count = ($Results | Measure-Object).Count
+                    Count = ($Presets | Measure-Object).Count
                 }
             }
         })

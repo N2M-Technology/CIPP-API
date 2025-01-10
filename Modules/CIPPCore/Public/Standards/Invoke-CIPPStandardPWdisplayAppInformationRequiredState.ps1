@@ -31,11 +31,11 @@ function Invoke-CIPPStandardPWdisplayAppInformationRequiredState {
     param($Tenant, $Settings)
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'PWdisplayAppInformationRequiredState'
 
-    $CurrentState = New-GraphGetRequest -Uri 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/microsoftAuthenticator' -tenantid $Tenant
-    $StateIsCorrect = ($CurrentState.state -eq 'enabled')
+    $CurrentInfo = New-GraphGetRequest -Uri 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/microsoftAuthenticator' -tenantid $Tenant
+    $State = if ($CurrentInfo.state -eq 'enabled') { $true } else { $false }
 
     If ($Settings.remediate -eq $true) {
-        if ($StateIsCorrect -eq $true) {
+        if ($State) {
             Write-LogMessage -API 'Standards' -tenant $tenant -message 'Passwordless with Information and Number Matching is already enabled.' -sev Info
         } else {
             Set-CIPPAuthenticationPolicy -Tenant $tenant -APIName 'Standards' -AuthenticationMethodId 'MicrosoftAuthenticator' -Enabled $true
@@ -43,7 +43,7 @@ function Invoke-CIPPStandardPWdisplayAppInformationRequiredState {
     }
 
     if ($Settings.alert -eq $true) {
-        if ($StateIsCorrect -eq $true) {
+        if ($State) {
             Write-LogMessage -API 'Standards' -tenant $tenant -message 'Passwordless with Information and Number Matching is enabled.' -sev Info
         } else {
             Write-LogMessage -API 'Standards' -tenant $tenant -message 'Passwordless with Information and Number Matching is not enabled.' -sev Alert
@@ -51,6 +51,6 @@ function Invoke-CIPPStandardPWdisplayAppInformationRequiredState {
     }
 
     if ($Settings.report -eq $true) {
-        Add-CIPPBPAField -FieldName 'PWdisplayAppInformationRequiredState' -FieldValue $StateIsCorrect -StoreAs bool -Tenant $tenant
+        Add-CIPPBPAField -FieldName 'PWdisplayAppInformationRequiredState' -FieldValue $State -StoreAs bool -Tenant $tenant
     }
 }

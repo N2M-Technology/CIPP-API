@@ -4,22 +4,8 @@ function Get-HuduMapping {
         $CIPPMapping
     )
 
-    $ExtensionMappings = Get-ExtensionMapping -Extension 'Hudu'
+    $Mappings = Get-ExtensionMapping -Extension 'Hudu'
 
-    $Tenants = Get-Tenants -IncludeErrors
-
-    $Mappings = foreach ($Mapping in $ExtensionMappings) {
-        $Tenant = $Tenants | Where-Object { $_.RowKey -eq $Mapping.RowKey }
-        if ($Tenant) {
-            [PSCustomObject]@{
-                TenantId        = $Tenant.customerId
-                Tenant          = $Tenant.displayName
-                TenantDomain    = $Tenant.defaultDomainName
-                IntegrationId   = $Mapping.IntegrationId
-                IntegrationName = $Mapping.IntegrationName
-            }
-        }
-    }
     $Tenants = Get-Tenants -IncludeErrors
     $Table = Get-CIPPTable -TableName Extensionsconfig
     try {
@@ -45,6 +31,7 @@ function Get-HuduMapping {
         }
     }
     $MappingObj = [PSCustomObject]@{
+        Tenants   = @($Tenants)
         Companies = @($HuduCompanies)
         Mappings  = $Mappings
     }

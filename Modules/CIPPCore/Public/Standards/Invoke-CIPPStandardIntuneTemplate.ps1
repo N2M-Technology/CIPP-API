@@ -20,7 +20,22 @@ function Invoke-CIPPStandardIntuneTemplate {
                 $displayname = $request.body.Displayname
                 $description = $request.body.Description
                 $RawJSON = $Request.body.RawJSON
-                Set-CIPPIntunePolicy -TemplateType $Request.body.Type -Description $description -DisplayName $displayname -RawJSON $RawJSON -AssignTo $Template.AssignTo -tenantFilter $Tenant
+                $TemplateTypeURL = $Request.body.Type
+
+                Set-CIPPIntunePolicy -TemplateType $Request.body.Type -Description $description -DisplayName $displayname -RawJSON $RawJSON -AssignTo $Template.AssignedTo -tenantFilter $Tenant
+
+                #Legacy assign, only required for older templates.
+                if ($Settings.AssignTo) {
+                    Write-Host "Assigning Policy to $($Settings.AssignTo) the create ID is $($CreateRequest)"
+                    if ($Settings.AssignTo -eq 'customGroup') { $Settings.AssignTo = $Settings.customGroup }
+                    if ($ExistingID) {
+                        Set-CIPPAssignedPolicy -PolicyId $ExistingID.id -TenantFilter $tenant -GroupName $Settings.AssignTo -Type $TemplateTypeURL
+                        Write-LogMessage -API 'Standards' -tenant $tenant -message "Successfully updated Intune Template $PolicyName policy for $($Tenant)" -sev 'Info'
+                    } else {
+                        Set-CIPPAssignedPolicy -PolicyId $CreateRequest.id -TenantFilter $tenant -GroupName $Settings.AssignTo -Type $TemplateTypeURL
+                        Write-LogMessage -API 'Standards' -tenant $tenant -message "Successfully created Intune Template $PolicyName policy for $($Tenant)" -sev 'Info'
+                    }
+                }
 
             } catch {
                 $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message
