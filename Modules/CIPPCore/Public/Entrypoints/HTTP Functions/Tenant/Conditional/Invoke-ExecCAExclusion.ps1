@@ -54,22 +54,11 @@ Function Invoke-ExecCAExclusion {
   else {
     Set-CIPPCAExclusion -TenantFilter $TenantFilter -ExclusionType $ExclusionType -UserID $UserID -PolicyId $PolicyId -Headers $Headers -UserName $Username
   }
-  Add-CIPPScheduledTask -Task $TaskBody -hidden $false
-  #Removal of the exclusion
-  $TaskBody.Parameters.ExclusionType = 'Remove'
-  $TaskBody.Name = "Remove CA Exclusion Vacation Mode: $username - $($Request.body.TenantFilter)"
-  $TaskBody.ScheduledTime = $Request.body.EndDate
-  Add-CIPPScheduledTask -Task $TaskBody -hidden $false
-  $body = @{ Results = "Successfully added vacation mode schedule for $Username." }
-}
-else {
-  Set-CIPPCAExclusion -TenantFilter $Request.body.TenantFilter -ExclusionType $Request.body.ExclusionType -UserID $Request.body.UserID -PolicyId $Request.body.PolicyId -Headers $Request.Headers -UserName $Username
-}
 
 
-Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
-    StatusCode = [HttpStatusCode]::OK
-    Body       = $Body
-  })
+  Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+      StatusCode = [HttpStatusCode]::OK
+      Body       = $Body
+    })
 
 }
